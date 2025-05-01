@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Community Garage Sale Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <style>
+    .table-highlight {
+      background-color: #d0ebff !important;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans p-4 flex flex-col h-screen">
+
+  <h2 class="text-3xl font-bold mb-4">Community Garage Sale Map</h2>
+
+  <div class="flex flex-col md:flex-row gap-4 items-start mb-4">
+    <input type="file" id="csvFileInput" accept=".csv" class="border p-2 rounded w-full max-w-xs" />
+    <button id="openFiltersBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Filters</button>
+  </div>
+
+  
+    <table id="dataTable" class="stripe hover w-full mt-4">
+  <thead>
+    <tr>
+      <th>Address</th>
+      <th>Participating Days</th>
+      <th>Items Sold</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+  
+
+  <!-- This will make sure the map takes up the remaining space -->
+  <div id="map" class="flex-grow w-full rounded shadow border mt-4 z-0"></div>
+
+  <!-- Filters Modal -->
+  <div id="filtersModal" class="fixed z-50 inset-0 hidden bg-black bg-opacity-40 flex items-center justify-center">
+    <div class="bg-white p-6 rounded shadow-lg w-full max-w-md space-y-4">
+      <h3 class="text-xl font-semibold">Filters</h3>
+      <div>
+        <label class="block text-sm font-medium">Search</label>
+        <input type="text" id="searchInput" placeholder="Type to filter..." class="w-full mt-1 border rounded px-3 py-2" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mt-2">Participating Days</label>
+        <div class="space-y-1 mt-1">
+          <label class="inline-flex items-center"><input type="checkbox" class="day-filter mr-2" value="June 5"> June 5</label><br>
+          <label class="inline-flex items-center"><input type="checkbox" class="day-filter mr-2" value="June 6"> June 6</label><br>
+          <label class="inline-flex items-center"><input type="checkbox" class="day-filter mr-2" value="June 7"> June 7</label><br>
+          <label class="inline-flex items-center"><input type="checkbox" class="day-filter mr-2" value="June 8"> June 8</label>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-4">
+        <button id="applyFiltersBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mr-2">Apply</button>
+		<button id="resetFiltersBtn" class="border px-4 py-2 rounded hover:bg-gray-100">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  let map = L.map('map').setView([39.5, -98.35], 4);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+  const markerGroup = L.layerGroup().addTo(map);
+  let fullData = [];
+  let markerMap = {};
+  let selectedAddress = null;
+
+  function renderTableAndMapRows(filteredData) {
+    const tableBody = $('#dataTable tbody');
+    tableBody.empty();
+    markerGroup.clearLayers();
+    markerMap = {};
+    const bounds = [];
+
+    $('#dataTable').DataTable().clear().destroy();
+    const table = $('#dataTable').DataTable({
+      data: filteredData.map(row => [row['Address'], row['Participating Days'], row['Items Sold']]),
+      columns: [
+        { title: 'Address' },
+        { title: 'Participating Days' },
+        { title: 'Items Sold' }
+      ]
+    });
+
+    filteredData.forEach(row => {
+      const lat = parseFloat(row['Latitude']);
+      const lon = parseFloat(row['Longitude']);
+      if (!isNaN(lat) && !isNaN(lon)) {
+        const latLng = [lat, lon];
+        bounds.push(latLng);
+        const marker = L.marker(latLng)
+          .bindPopup(`<div><h2 class='font-bold text-lg'>${row['Address']}</h2><p><strong>Days:</strong> ${row['Participating Days']}</p><p><strong>Items:</strong> ${row['Items Sold']}</p></div>`) 
+          .addTo(markerGroup);
+        markerMap[row['Address']] = marker;
+      }
+    });
+
+    if (bounds.length) map.fitBounds(bounds, { padding: [30, 30] });
+
+    // Reattach the click event listener to the rows after table is re-rendered
+    table.rows().nodes().to$().on('click', function () {
+      const rowData = table.row(this).data();
+      const address = rowData[0];
+      const marker = markerMap[address];
+      if (marker) {
+        map.setView(marker.getLatLng(), 17);  // Zoom in
+        marker.openPopup();  // Open the popup
+        $('#dataTable tbody tr').removeClass('table-highlight');
+        $(this).addClass('table-highlight');
+        selectedAddress = address;
+      }
+    });
+  }
+
+  document.getElementById('csvFileInput').addEventListener('change', function (e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: function(results) {
+        fullData = results.data;
+        renderTableAndMapRows(fullData);
+      }
+    });
+  });
+
+  const modal = document.getElementById('filtersModal');
+  document.getElementById('openFiltersBtn').onclick = () => modal.classList.remove('hidden');
+
+  window.onclick = function(e) {
+    if (e.target === modal) modal.classList.add('hidden');
+  };
+
+  document.getElementById('applyFiltersBtn').addEventListener('click', () => {
+    const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+    const checkedDays = Array.from(document.querySelectorAll('.day-filter:checked')).map(cb => cb.value);
+
+    selectedAddress = null;
+    $('#dataTable tbody tr').removeClass('table-highlight');
+    modal.classList.add('hidden');
+
+    const filtered = fullData.filter(row => {
+      const inText = row['Address'].toLowerCase().includes(searchTerm) || row['Items Sold'].toLowerCase().includes(searchTerm);
+      const inDays = checkedDays.length === 0 || checkedDays.some(day => row['Participating Days'].includes(day));
+      return inText && inDays;
+    });
+
+    renderTableAndMapRows(filtered);
+  });
+
+  document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+    document.getElementById('searchInput').value = '';
+    document.querySelectorAll('.day-filter').forEach(cb => cb.checked = false);
+    selectedAddress = null;
+    $('#dataTable tbody tr').removeClass('table-highlight');
+    modal.classList.add('hidden');
+    renderTableAndMapRows(fullData);
+  });
+
+  document.getElementById('searchInput').addEventListener('keypress', function(event) {
+    if (event.key === 'Enter') {
+      document.getElementById('applyFiltersBtn').click();
+    }
+  });
+</script>
+
+
+
+</body>
+</html>
+
