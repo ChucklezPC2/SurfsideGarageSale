@@ -18,6 +18,9 @@
     .table-highlight {
       background-color: #d0ebff !important;
     }
+	
+	#dataTable tbody tr {cursor:pointer;}
+	
 	#resultsContainer{clear:both;}
 	@media print {
 
@@ -42,7 +45,7 @@
   
     <div class="mt-4">
 	<div class="no-print">
-		<button id="openFiltersBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 float-left">Filters</button>
+		<button id="openFiltersBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 float-left" onclick="showFilters();">Filters</button>
 	  <button id="toggleResultsBtn" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400 float-left mx-2 mb-2">
 		Hide Results Table
 	  </button>
@@ -68,7 +71,9 @@
 
   <!-- Filters Modal -->
   <div id="filtersModal" class="fixed z-50 inset-0 hidden bg-black bg-opacity-40 flex items-center justify-center">
-    <div class="bg-white p-6 rounded shadow-lg w-full max-w-md space-y-4">
+    <div class="bg-white p-6 rounded shadow-lg w-full max-w-md space-y-4 relative">
+		<button id="modalCloseX" class="absolute top-3 right-3 text-gray-500 hover:text-black text-3xl font-bold" onclick="hideFilters();">&times;</button>
+
       <h3 class="text-xl font-semibold">Filters</h3>
       <div>
         <label class="block text-sm font-medium">Search</label>
@@ -99,6 +104,15 @@
   let fullData = [];
   let markerMap = {};
   let selectedAddress = null;
+  const modal = document.getElementById('filtersModal');
+  
+  function hideFilters(){
+	modal.classList.add('hidden');
+  }
+  
+  function showFilters(){
+	modal.classList.remove('hidden');
+  }
 
   function renderTableAndMapRows(filteredData) {
     const tableBody = $('#dataTable tbody');
@@ -112,7 +126,7 @@
       data: filteredData.map(row => [row['Address'], row['Participating Days'], row['Items Sold']]),
 	  searching: false,
       columns: [
-        { title: 'Address' },
+        { title: 'Address', className: 'underline' },
         { title: 'Participating Days' },
         { title: 'Items Sold' }
       ],
@@ -171,11 +185,11 @@
   // Fetch the CSV data when the page loads
   fetchCSV();
 
-  const modal = document.getElementById('filtersModal');
-  document.getElementById('openFiltersBtn').onclick = () => modal.classList.remove('hidden');
-  window.onclick = function(e) {
+  
+
+  /*window.onclick = function(e) {
     if (e.target === modal) modal.classList.add('hidden');
-  };
+  };*/
 
   document.getElementById('applyFiltersBtn').addEventListener('click', () => {
     const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
@@ -183,7 +197,7 @@
 
     selectedAddress = null;
     $('#dataTable tbody tr').removeClass('table-highlight');
-    modal.classList.add('hidden');
+    hideFilters();
 
     const filtered = fullData.filter(row => {
       const inText = row['Address'].toLowerCase().includes(searchTerm) || row['Items Sold'].toLowerCase().includes(searchTerm);
@@ -199,7 +213,7 @@
     document.querySelectorAll('.day-filter').forEach(cb => cb.checked = false);
     selectedAddress = null;
     $('#dataTable tbody tr').removeClass('table-highlight');
-    modal.classList.add('hidden');
+    hideFilters();
     renderTableAndMapRows(fullData);
   });
 
