@@ -18,27 +18,49 @@
     .table-highlight {
       background-color: #d0ebff !important;
     }
+	#resultsContainer{clear:both;}
+	@media print {
+
+		body {
+		  position: absolute;
+		  top: 0;
+		  left: 0;
+		  width: 100%;
+		}
+
+		.no-print, .dataTables_length, .dataTables_paginate, .dataTables_info {
+		  display: none !important;
+		}
+	  }
   </style>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans p-4 flex flex-col h-screen">
 
   <h2 class="text-3xl font-bold mb-4">Surfside Community Garage Sale Map 2025</h2>
 
-  <div class="flex flex-col md:flex-row gap-4 items-start mb-4">
-    <button id="openFiltersBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Filters</button>
-  </div>
 
   
-    <table id="dataTable" class="stripe hover w-full mt-4">
-  <thead>
-    <tr>
-      <th>Address</th>
-      <th>Participating Days</th>
-      <th>Items Sold</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
+    <div class="mt-4">
+	<div class="no-print">
+		<button id="openFiltersBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 float-left">Filters</button>
+	  <button id="toggleResultsBtn" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400 float-left mx-2 mb-2">
+		Hide Results Table
+	  </button>
+	  <button id="printBtn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 float-right" onclick="window.print();">Print</button>
+	</div>
+	  <div id="resultsContainer" class="transition-all duration-300 mt-2">
+		<table id="dataTable" class="stripe hover w-full mt-4">
+		  <thead>
+			<tr>
+			  <th>Address</th>
+			  <th>Participating Days</th>
+			  <th>Items Sold</th>
+			</tr>
+		  </thead>
+		  <tbody></tbody>
+		</table>
+	  </div>
+	</div>
   
 
   <!-- This will make sure the map takes up the remaining space -->
@@ -88,12 +110,20 @@
     $('#dataTable').DataTable().clear().destroy();
     const table = $('#dataTable').DataTable({
       data: filteredData.map(row => [row['Address'], row['Participating Days'], row['Items Sold']]),
+	  searching: false,
       columns: [
         { title: 'Address' },
         { title: 'Participating Days' },
         { title: 'Items Sold' }
-      ]
+      ],
+
+		lengthMenu: [ [5, 10, 25, -1], [5, 10, 25, "All"] ]
     });
+	
+	table.on('page.dt length.dt', function () {
+	  $('#dataTable tbody tr').removeClass('table-highlight');
+	  selectedAddress = null;
+	});
 
     filteredData.forEach(row => {
       const lat = parseFloat(row['Latitude']);
@@ -178,6 +208,19 @@
       document.getElementById('applyFiltersBtn').click();
     }
   });
+  
+  document.getElementById('toggleResultsBtn').addEventListener('click', () => {
+	  const container = document.getElementById('resultsContainer');
+	  const button = document.getElementById('toggleResultsBtn');
+
+	  if (container.classList.contains('hidden')) {
+		container.classList.remove('hidden');
+		button.textContent = 'Hide Results Table';
+	  } else {
+		container.classList.add('hidden');
+		button.textContent = 'Show Results Table';
+	  }
+	});
 </script>
 
 
