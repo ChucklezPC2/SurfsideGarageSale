@@ -22,10 +22,9 @@
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans p-4 flex flex-col h-screen">
 
-  <h2 class="text-3xl font-bold mb-4">Community Garage Sale Map</h2>
+  <h2 class="text-3xl font-bold mb-4">Surfside Community Garage Sale Map 2025</h2>
 
   <div class="flex flex-col md:flex-row gap-4 items-start mb-4">
-    <input type="file" id="csvFileInput" accept=".csv" class="border p-2 rounded w-full max-w-xs" />
     <button id="openFiltersBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Filters</button>
   </div>
 
@@ -126,10 +125,10 @@
     });
   }
 
-  document.getElementById('csvFileInput').addEventListener('change', function (e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    Papa.parse(file, {
+  // Fetch the CSV file from GitHub
+  function fetchCSV() {
+    Papa.parse('https://raw.githubusercontent.com/ChucklezPC2/SurfsideGarageSale/main/data.csv', {
+      download: true,
       header: true,
       skipEmptyLines: true,
       complete: function(results) {
@@ -137,11 +136,13 @@
         renderTableAndMapRows(fullData);
       }
     });
-  });
+  }
+
+  // Fetch the CSV data when the page loads
+  fetchCSV();
 
   const modal = document.getElementById('filtersModal');
   document.getElementById('openFiltersBtn').onclick = () => modal.classList.remove('hidden');
-
   window.onclick = function(e) {
     if (e.target === modal) modal.classList.add('hidden');
   };
@@ -178,6 +179,7 @@
     }
   });
 </script>
+
 
 
 
