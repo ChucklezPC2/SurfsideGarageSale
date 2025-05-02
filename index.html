@@ -130,7 +130,7 @@ function renderTableAndMapRows(filteredData) {
 
   $('#dataTable').DataTable().clear().destroy();
   const table = $('#dataTable').DataTable({
-    data: filteredData.filter(entry => entry["Address"] && entry["Address"].trim() !== "").map(row => [row['Address'], normalizeDaysField(row['Participating Days']), row['Items Sold']]),
+    data: filteredData.map(row => [row['Your Address'], normalizeDaysField(row['What days are you participating in the Surfside Community Garage Sales?']), row['What types of items will be available for sale?']]),
     searching: false,
     columns: [
       { title: 'Address' },
@@ -167,9 +167,9 @@ function renderTableAndMapRows(filteredData) {
       const latLng = [lat, lon];
       bounds.push(latLng);
       const marker = L.marker(latLng)
-        .bindPopup(`<div><h2 class='fw-bold h6'>${row['Address']}</h2><p><strong>Days:</strong> ${row['Participating Days']}</p><p><strong>Items:</strong> ${row['Items Sold']}</p></div>`) 
+        .bindPopup(`<div><h2 class='fw-bold h6'>${row['Your Address']}</h2><p><strong>Days:</strong> ${row['What days are you participating in the Surfside Community Garage Sales?']}</p><p><strong>Items:</strong> ${row['What types of items will be available for sale?']}</p></div>`) 
         .addTo(markerGroup);
-      markerMap[row['Address']] = marker;
+      markerMap[row['Your Address']] = marker;
     }
   });
 
@@ -190,19 +190,25 @@ function renderTableAndMapRows(filteredData) {
 }
 
 function normalizeDaysField(rawDays) {
+	if(rawDays == null){ return ""; }
   return rawDays.replace(/\r?\n/g, ', ').trim();
 }
 
 function fetchCSV() {
-  Papa.parse('https://raw.githubusercontent.com/ChucklezPC2/SurfsideGarageSale/main/data.csv', {
-    download: true,
-    header: true,
-    skipEmptyLines: true,
-    complete: function(results) {
-      fullData = results.data;
-      renderTableAndMapRows(fullData);
-    }
-  });
+
+	fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vRWTvDhEgNaMlIOJZJdFcW-mPkM4dffTyk4wsBBFTN9gRiGpNVIRtml5-jefxsnzTX2PV7PleJf8a2X/pub?gid=1950030763&single=true&output=csv').then(response => response.text())
+      .then(data => {
+		Papa.parse(data, {
+			header: true,
+			skipEmptyLines: true,
+			complete: function(results) {
+			  fullData = results.data;
+			  renderTableAndMapRows(fullData);
+			}
+		  });
+
+      });
+  
 }
 
 fetchCSV();
@@ -215,8 +221,8 @@ document.getElementById('applyFiltersBtn').addEventListener('click', () => {
   $('#dataTable tbody tr').removeClass('table-highlight');
 
   const filtered = fullData.filter(row => {
-    const inText = row['Address'].toLowerCase().includes(searchTerm) || row['Items Sold'].toLowerCase().includes(searchTerm);
-    const inDays = checkedDays.length === 0 || checkedDays.some(day => row['Participating Days'].includes(day));
+    const inText = row['Your Address'].toLowerCase().includes(searchTerm) || row['What types of items will be available for sale?'].toLowerCase().includes(searchTerm);
+    const inDays = checkedDays.length === 0 || checkedDays.some(day => row['What days are you participating in the Surfside Community Garage Sales?'].includes(day));
     return inText && inDays;
   });
 
@@ -238,30 +244,7 @@ document.getElementById('searchInput').addEventListener('keypress', function(eve
     document.getElementById('applyFiltersBtn').click();
   }
 });
-/*
-document.getElementById('toggleResultsBtn').addEventListener('click', () => {
-  const container = document.getElementById('resultsContainer');
-  const button = document.getElementById('toggleResultsBtn');
-  if (container.classList.contains('d-none')) {
-    container.classList.remove('d-none');
-    button.textContent = 'Hide Results Table';
-  } else {
-    container.classList.add('d-none');
-    button.textContent = 'Show Results Table';
-  }
-});
 
-document.querySelectorAll('.day-filter-btn').forEach(button => {
-  button.addEventListener('click', () => {
-    if (button.classList.contains('btn-outline-primary')) {
-      button.classList.remove('btn-outline-primary');
-      button.classList.add('btn-primary');
-    } else {
-      button.classList.remove('btn-primary');
-      button.classList.add('btn-outline-primary');
-    }
-  });
-});*/
 </script>
 </body>
 </html>
