@@ -130,7 +130,7 @@ function renderTableAndMapRows(filteredData) {
 
   $('#dataTable').DataTable().clear().destroy();
   const table = $('#dataTable').DataTable({
-    data: filteredData.map(row => [row['Address'], row['Participating Days'], row['Items Sold']]),
+    data: filteredData.filter(entry => entry["Address"] && entry["Address"].trim() !== "").map(row => [row['Address'], normalizeDaysField(row['Participating Days']), row['Items Sold']]),
     searching: false,
     columns: [
       { title: 'Address' },
@@ -157,6 +157,8 @@ function renderTableAndMapRows(filteredData) {
     $('#dataTable tbody tr').removeClass('table-highlight');
     selectedAddress = null;
   });
+  
+  
 
   filteredData.forEach(row => {
     const lat = parseFloat(row['Latitude']);
@@ -185,6 +187,10 @@ function renderTableAndMapRows(filteredData) {
       selectedAddress = address;
     }
   });
+}
+
+function normalizeDaysField(rawDays) {
+  return rawDays.replace(/\r?\n/g, ', ').trim();
 }
 
 function fetchCSV() {
@@ -232,7 +238,7 @@ document.getElementById('searchInput').addEventListener('keypress', function(eve
     document.getElementById('applyFiltersBtn').click();
   }
 });
-
+/*
 document.getElementById('toggleResultsBtn').addEventListener('click', () => {
   const container = document.getElementById('resultsContainer');
   const button = document.getElementById('toggleResultsBtn');
@@ -244,7 +250,7 @@ document.getElementById('toggleResultsBtn').addEventListener('click', () => {
     button.textContent = 'Show Results Table';
   }
 });
-/*
+
 document.querySelectorAll('.day-filter-btn').forEach(button => {
   button.addEventListener('click', () => {
     if (button.classList.contains('btn-outline-primary')) {
