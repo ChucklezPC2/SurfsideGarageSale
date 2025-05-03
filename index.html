@@ -8,7 +8,7 @@
 
   <!-- Bootstrap 5.3.5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-SgOJa3DmI69IUzQ2PVdRZhwQ+dy64/BUtbMJw1MZ8t5HZApcHrRKUc4W0kG879m7" crossorigin="anonymous">
-	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js" integrity="sha384-k6d4wzSIapyDyv1kpU366/PK5hCdSbCRGRCMv+eplOQJWyd1fbcAu9OCUj5zNLiq" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js" integrity="sha384-k6d4wzSIapyDyv1kpU366/PK5hCdSbCRGRCMv+eplOQJWyd1fbcAu9OCUj5zNLiq" crossorigin="anonymous"></script>
 
   <!-- jQuery 3.7.1 -->
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -27,9 +27,9 @@
     .table-highlight {
       background-color: #d0ebff !important;
     }
-	
+
 	html{width: calc(100vw - (100vw - 100%));}
-	
+
 .day-filter-btn:focus:not(.active){ background:none; color:#0d6efd;}
 
     #dataTable tbody tr {cursor:pointer;}
@@ -46,38 +46,51 @@
         display: none !important;
       }
     }
+
+    #loadingOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255, 255, 255, 0.8);
+      z-index: 1050;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #0d6efd;
+    }
   </style>
 </head>
 <body class="bg-light text-dark p-md-4 p-1 d-flex flex-column min-vh-100">
-  <h2 class="display-5 fw-bold mb-4 text-center">Surfside Community Garage Sale Map 2025</h2>
-	<div class="row flex-grow-1">
-		<div class="mb-3 col-12 col-md-5">
-			<div class="d-print-none mb-2">
-			  <button id="openFiltersBtn" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#filtersModal">Filters</button>
-			  
-			  <button id="printBtn" class="btn btn-success float-end" onclick="window.print();">Print</button>
-			  
-			</div>
-			<div id="resultsContainer">
-			  <table id="dataTable" class="table table-striped table-hover w-100">
-				<thead>
-				  <tr>
-					<th>Address</th>
-					<th>Days</th>
-					<th>Items Sold</th>
-				  </tr>
-				</thead>
-				<tbody></tbody>
-			  </table>
-			</div>
-		  </div>
-		  <div class="col-12 col-md-7">
-			<div id="map" class="z-0 h-100 flex-grow-1 w-100 rounded border"></div>
-		  </div>
-	</div>
-  
+  <div id="loadingOverlay">Loading data...</div>
 
-  
+  <h2 class="display-5 fw-bold mb-4 text-center">Surfside Community Garage Sale Map 2025</h2>
+  <div class="row flex-grow-1">
+    <div class="mb-3 col-12 col-md-5">
+      <div class="d-print-none mb-2">
+        <button id="openFiltersBtn" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#filtersModal">Filters</button>
+        <button id="printBtn" class="btn btn-success float-end" onclick="window.print();">Print</button>
+      </div>
+      <div id="resultsContainer">
+        <table id="dataTable" class="table table-striped table-hover w-100">
+          <thead>
+            <tr>
+              <th>Address</th>
+              <th>Days</th>
+              <th>Items Sold</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="col-12 col-md-7">
+      <div id="map" class="z-0 h-100 flex-grow-1 w-100 rounded border"></div>
+    </div>
+  </div>
 
   <!-- Filters Modal -->
   <div class="modal fade" id="filtersModal" tabindex="-1" aria-labelledby="filtersModalLabel" aria-hidden="true">
@@ -131,24 +144,26 @@ function renderTableAndMapRows(filteredData) {
   $('#dataTable').DataTable().clear().destroy();
   const table = $('#dataTable').DataTable({
     data: filteredData.map(row => [row['Your Address'], normalizeDaysField(row['What days are you participating in the Surfside Community Garage Sales?']), row['What types of items will be available for sale?']]),
+    processing: true,
     searching: false,
     columns: [
       { title: 'Address' },
       { title: 'Days' },
       { title: 'Items Sold' }
     ],
-	language: {
-        lengthMenu: '_MENU_ houses per page',
-		info: "Showing _START_ to _END_ of _TOTAL_ houses",
+    language: {
+      lengthMenu: '_MENU_ houses per page',
+      info: "Showing _START_ to _END_ of _TOTAL_ houses",
+      processing: "Loading..."
     },
-	layout: {
-        topStart: 'pageLength',
-        topEnd: 'paging',
-		bottom: 'info',
-        bottomStart: null,
-        bottomEnd: null
+    layout: {
+      topStart: 'pageLength',
+      topEnd: 'paging',
+      bottom: 'info',
+      bottomStart: null,
+      bottomEnd: null
     },
-	pageLength: 10,
+    pageLength: 10,
     lengthMenu: [[5, 10, 25, -1], [5, 10, 25, "All"]],
     order: [[1, 'asc'], [0, 'asc']]
   });
@@ -157,8 +172,6 @@ function renderTableAndMapRows(filteredData) {
     $('#dataTable tbody tr').removeClass('table-highlight');
     selectedAddress = null;
   });
-  
-  
 
   filteredData.forEach(row => {
     const lat = parseFloat(row['Latitude']);
@@ -187,28 +200,26 @@ function renderTableAndMapRows(filteredData) {
       selectedAddress = address;
     }
   });
+
+  document.getElementById('loadingOverlay').style.display = 'none';
 }
 
 function normalizeDaysField(rawDays) {
-	if(rawDays == null){ return ""; }
+  if(rawDays == null){ return ""; }
   return rawDays.replace(/\r?\n/g, ', ').trim();
 }
 
 function fetchCSV() {
-
-	fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vRWTvDhEgNaMlIOJZJdFcW-mPkM4dffTyk4wsBBFTN9gRiGpNVIRtml5-jefxsnzTX2PV7PleJf8a2X/pub?gid=1950030763&single=true&output=csv').then(response => response.text())
-      .then(data => {
-		Papa.parse(data, {
-			header: true,
-			skipEmptyLines: true,
-			complete: function(results) {
-			  fullData = results.data;
-			  renderTableAndMapRows(fullData);
-			}
-		  });
-
-      });
-  
+  document.getElementById('loadingOverlay').style.display = 'flex';
+  Papa.parse('https://docs.google.com/spreadsheets/d/e/2PACX-1vRWTvDhEgNaMlIOJZJdFcW-mPkM4dffTyk4wsBBFTN9gRiGpNVIRtml5-jefxsnzTX2PV7PleJf8a2X/pub?gid=1950030763&single=true&output=csv', {
+    header: true,
+    download: true,
+    skipEmptyLines: true,
+    complete: function(results) {
+      fullData = results.data;
+      renderTableAndMapRows(fullData);
+    }
+  });
 }
 
 fetchCSV();
@@ -244,7 +255,6 @@ document.getElementById('searchInput').addEventListener('keypress', function(eve
     document.getElementById('applyFiltersBtn').click();
   }
 });
-
 </script>
 </body>
 </html>
