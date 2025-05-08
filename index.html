@@ -200,7 +200,7 @@ function renderTableAndMapRows(filteredData) {
 
   if (bounds.length) map.fitBounds(bounds, { padding: [30, 30] });
 
-  table.rows().nodes().to$().on('click', function () {
+  $('#dataTable tbody').off('click').on('click', 'tr', function () {
     const rowData = table.row(this).data();
     const address = rowData[0];
     const marker = markerMap[address];
