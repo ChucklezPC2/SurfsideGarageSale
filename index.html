@@ -177,7 +177,11 @@ function renderTableAndMapRows(filteredData) {
     },
     pageLength: 10,
     lengthMenu: [[5, 10, 25, -1], [5, 10, 25, "All"]],
-    order: [[1, 'asc'], [0, 'asc']]
+    order: [[1, 'asc'], [0, 'asc']],
+	
+	"drawCallback": function( settings ) {
+      map.invalidateSize();
+    }
   });
 
   table.on('page.dt length.dt', function () {
