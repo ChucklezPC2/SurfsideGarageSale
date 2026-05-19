@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Surfside Community Garage Sale Map 2025</title>
+  <title>Surfside Community Garage Sale Map 2026</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex">
 
@@ -22,6 +22,12 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <!-- lightGallery -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@2.7.2/css/lightgallery-bundle.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/lightgallery@2.7.2/lightgallery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lightgallery@2.7.2/plugins/thumbnail/lg-thumbnail.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lightgallery@2.7.2/plugins/zoom/lg-zoom.min.js"></script>
 
   <style>
     .table-highlight {
@@ -74,12 +80,16 @@
 		width: 8.5in !important;
         height: 11in !important;
 	}
+
+  @media print {
+    #photoModal { display: none !important; }
+  }
   </style>
 </head>
 <body class="bg-light text-dark p-md-4 p-1 d-flex flex-column min-vh-100">
   <div id="loadingOverlay">Loading data...</div>
 
-  <h1 class="fw-bold mb-4 text-center">Surfside Community Garage Sale Map 2025</h1>
+  <h1 class="fw-bold mb-4 text-center">Surfside Community Garage Sale Map 2026</h1>
   <div class="row flex-grow-1">
     <div class="mb-3 col-12 col-md-5 page">
       <div class="d-print-none mb-2">
@@ -134,6 +144,9 @@
       </div>
     </div>
   </div>
+
+<!-- lightGallery dynamic container -->
+<div id="lgDynamic"></div>
 
 <script>
 let map = L.map('map').setView([39.5, -98.35], 4);
@@ -195,8 +208,12 @@ function renderTableAndMapRows(filteredData) {
     if (!isNaN(lat) && !isNaN(lon)) {
       const latLng = [lat, lon];
       bounds.push(latLng);
+      const photoIds = parsePhotoLinks(row['Garage Sale Photos'] || '');
+      const photoBtn = photoIds.length
+        ? `<button class="btn btn-sm btn-outline-primary mt-1 popup-photo-btn" data-ids="${encodeURIComponent(JSON.stringify(photoIds))}" data-address="${encodeURIComponent(row['Your Address'])}">📷 View ${photoIds.length} Photo${photoIds.length>1?'s':''}</button>`
+        : '';
       const marker = L.marker(latLng)
-        .bindPopup(`<div><h2 class='fw-bold h6'>${row['Your Address']}</h2><p><strong>Days:</strong> ${row['What days are you participating in the Surfside Community Garage Sales?']}</p><p><strong>Items:</strong> ${row['What types of items will be available for sale?']}</p></div>`) 
+        .bindPopup(`<div><h2 class='fw-bold h6'>${row['Your Address']}</h2><p><strong>Days:</strong> ${row['What days are you participating in the Surfside Community Garage Sales?']}</p><p><strong>Items:</strong> ${row['What types of items will be available for sale?']}</p>${photoBtn}</div>`) 
         .addTo(markerGroup);
       markerMap[row['Your Address']] = marker;
     }
@@ -214,11 +231,67 @@ function renderTableAndMapRows(filteredData) {
       $('#dataTable tbody tr').removeClass('table-highlight');
       $(this).addClass('table-highlight');
       selectedAddress = address;
+
+      // Open photo gallery if this row has photos
+      const rowObj = filteredData.find(r => r['Your Address'] === address);
+      if (rowObj) {
+        const photoIds = parsePhotoLinks(rowObj['Garage Sale Photos'] || '');
+        if (photoIds.length) showGallery(address, photoIds);
+      }
     }
   });
 
   document.getElementById('loadingOverlay').style.display = 'none';
 }
+
+  // ── Photo Gallery (lightGallery) ───────────────────────────────
+  let lgInstance = null;
+
+  function driveIdFromUrl(url) {
+    const m = url.match(/[?&/]id=([a-zA-Z0-9_-]+)/) ||
+              url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    return m ? m[1] : null;
+  }
+
+  function thumbUrl(id)  { return `https://drive.google.com/thumbnail?id=${id}&sz=w1200`; }
+  function thumbSmUrl(id){ return `https://drive.google.com/thumbnail?id=${id}&sz=w200`; }
+
+  function parsePhotoLinks(raw) {
+    if (!raw) return [];
+    return raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
+      .map(url => driveIdFromUrl(url)).filter(Boolean);
+  }
+
+  function showGallery(address, ids) {
+    if (lgInstance) { lgInstance.destroy(); lgInstance = null; }
+    const el = document.getElementById('lgDynamic');
+    lgInstance = lightGallery(el, {
+      dynamic: true,
+      plugins: [lgThumbnail, lgZoom],
+      dynamicEl: ids.map((id, i) => ({
+        src:   thumbUrl(id),
+        thumb: thumbSmUrl(id),
+        alt:   `${address} – photo ${i + 1}`,
+        subHtml: `<h4 style="margin:0">${address}</h4>`
+      })),
+      index: 0,
+      licenseKey: '0000-0000-000-0000'
+    });
+    lgInstance.openGallery(0);
+  }
+
+  window.showGallery = showGallery;
+
+  // Handle photo buttons inside map popups
+  document.getElementById('map').addEventListener('click', e => {
+    const btn = e.target.closest('.popup-photo-btn');
+    if (!btn) return;
+    const ids = JSON.parse(decodeURIComponent(btn.dataset.ids));
+    const address = decodeURIComponent(btn.dataset.address);
+    showGallery(address, ids);
+  });
+
+  // ── End Photo Gallery ─────────────────────────────────────────
 
 function normalizeDaysField(rawDays) {
   if(rawDays == null){ return ""; }
@@ -227,7 +300,7 @@ function normalizeDaysField(rawDays) {
 
 function fetchCSV() {
   document.getElementById('loadingOverlay').style.display = 'flex';
-  Papa.parse('https://docs.google.com/spreadsheets/d/e/2PACX-1vRWTvDhEgNaMlIOJZJdFcW-mPkM4dffTyk4wsBBFTN9gRiGpNVIRtml5-jefxsnzTX2PV7PleJf8a2X/pub?gid=1950030763&single=true&output=csv', {
+  Papa.parse('https://docs.google.com/spreadsheets/d/e/2PACX-1vRaI5FHsikEBM0PVS_gHz0JQHUn6mQH4MJEFh8tCqAQDa4IgEoFINCS--5w5hh0FbvzgyqscrJxSEBb/pub?output=csv', {
     header: true,
     download: true,
     skipEmptyLines: true,
