@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Admin Panel</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="/css/styles.css" rel="stylesheet">
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/common.js"></script>
+
+<style>
+.photo-thumb {
+    width: 120px;
+    height: 90px;
+    object-fit: cover;
+}
+.photo-container {
+    display: inline-block;
+    position: relative;
+    margin: 4px;
+}
+.remove-btn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: red;
+    color: white;
+    border: none;
+}
+.dropZone {
+    border: 2px dashed #ccc;
+    padding: 15px;
+    text-align: center;
+    border-radius: 8px;
+    background: #fafafa;
+    cursor: pointer;
+}
+.dropZone.dragover {
+    background: #e9f5ff;
+    border-color: #0d6efd;
+}
+.preview-container {
+    display:inline-block;
+    position:relative;
+    margin:5px;
+}
+.preview-thumb {
+    width:100px;
+    height:80px;
+    object-fit:cover;
+}
+.preview-remove {
+    position:absolute;
+    top:-5px;
+    right:-5px;
+    background:red;
+    color:white;
+    border:none;
+    border-radius:50%;
+    width:18px;
+    height:18px;
+}
+</style>
+</head>
+
+<body class="bg-light">
+
+<div class="container py-4">
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Admin Panel</h2>
+    <button onclick="logout()" class="btn btn-outline-danger btn-sm">Logout</button>
+</div>
+
+<div id="loginBox">
+    <input id="username" class="form-control mb-2" placeholder="Username">
+    <input id="password" type="password" class="form-control mb-2" placeholder="Password">
+    <button onclick="login()" class="btn btn-primary">Login</button>
+</div>
+
+<div id="content" style="display:none;"></div>
+
+</div>
+
+<div id="toast-container" class="position-fixed top-0 end-0 p-3"></div>
+
+<script>
+let removedPhotosMap = {};
+let listingFilesMap = {};
+const DAYS = ["June 11","June 12","June 13","June 14"];
+
+/* ==========================
+   LOGIN
+========================== */
+async function login(){
+
+    const res = await fetch('/api/admin/login',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+            username: username.value,
+            password: password.value
+        })
+    });
+
+    if(!res.ok){
+        showToast("Login failed","danger");
+        return;
+    }
+
+    load();
+}
+
+/* ==========================
+   LOGOUT
+========================== */
+async function logout(){
+    await fetch('/api/admin/logout');
+    content.style.display = 'none';
+    loginBox.style.display = 'block';
+    showToast("Logged out","success");
+}
+
+/* ==========================
+   LOAD DATA
+========================== */
+async function load(){
+
+    const res = await fetch('/api/submissions');
+
+    if(res.status === 401){
+        loginBox.style.display = 'block';
+        content.style.display = 'none';
+        return;
+    }
+
+    const data = await res.json();
+
+    loginBox.style.display = 'none';
+    content.style.display = 'block';
+
+    content.innerHTML = data.map(row=>{
+
+        const photos = JSON.parse(row.photos || '[]');
+        const days = JSON.parse(row.participating_days || '[]');
+
+        return `
+        <div class="card mb-4 p-3">
+
+            <b>${row.address}</b>
+
+            <textarea id="items-${row.id}" class="form-control mt-2">${row.items}</textarea>
+
+            <label class="fw-bold mt-2">Participating Days</label>
+
+            <div>
+                ${DAYS.map(day=>`
+                    <label class="me-2">
+                        <input type="checkbox" name="days-${row.id}" value="${day}" ${days.includes(day) ? 'checked' : ''}>
+                        ${day}
+                    </label>
+                `).join('')}
+            </div>
+
+            <label class="fw-bold mt-2">Photos</label>
+            <div id="photos-${row.id}">
+                ${photos.map(p=>`
+                    <div class="photo-container">
+                        <img src="/${p}" class="photo-thumb">
+                        <button class="remove-btn" onclick="removePhoto(${row.id},'${p}',this)">×</button>
+                    </div>
+                `).join('')}
+            </div>
+
+            <label class="fw-bold mt-2">Add Photos</label>
+
+            <div id="dropZone-${row.id}" class="dropZone mb-2">
+                Drag & Drop or Click
+                <input id="newPhotos-${row.id}" type="file" multiple hidden>
+            </div>
+
+            <div id="preview-${row.id}"></div>
+
+            <div class="d-flex gap-2 mt-3">
+                <button onclick="save(${row.id})" class="btn btn-success btn-sm">Save</button>
+                <button onclick="del(${row.id})" class="btn btn-danger btn-sm">Delete</button>
+            </div>
+
+        </div>
+        `;
+    }).join('');
+
+    setTimeout(()=>data.forEach(r=>initDropZone(r.id)),0);
+}
+
+/* ==========================
+   PHOTO HANDLING
+========================== */
+function removePhoto(id,path,btn){
+    if(!removedPhotosMap[id]) removedPhotosMap[id]=new Set();
+    removedPhotosMap[id].add(path);
+    btn.parentElement.remove();
+}
+
+function initDropZone(id){
+
+    const dz = document.getElementById(`dropZone-${id}`);
+    const input = document.getElementById(`newPhotos-${id}`);
+
+    listingFilesMap[id] = listingFilesMap[id] || [];
+
+    dz.onclick = () => input.click();
+
+    dz.ondragover = e=>{e.preventDefault(); dz.classList.add('dragover');};
+    dz.ondragleave = ()=>dz.classList.remove('dragover');
+
+    dz.ondrop = e=>{
+        e.preventDefault();
+        dz.classList.remove('dragover');
+        handleFiles(id,[...e.dataTransfer.files]);
+    };
+
+    input.onchange = function(){
+        handleFiles(id,[...this.files]);
+        this.value="";
+    };
+}
+
+function handleFiles(id,files){
+
+    const existing = document.querySelectorAll(`#photos-${id} img`).length;
+    const current = listingFilesMap[id];
+
+    if(existing + current.length + files.length > 5){
+        showToast("Max 5 photos","warning");
+        return;
+    }
+
+    listingFilesMap[id].push(...files);
+    renderPreview(id);
+}
+
+function renderPreview(id){
+
+    document.getElementById(`preview-${id}`).innerHTML =
+        listingFilesMap[id].map((f,i)=>`
+            <div class="preview-container">
+                <img src="${URL.createObjectURL(f)}" class="preview-thumb">
+                <button class="preview-remove" onclick="removeFile(${id},${i})">×</button>
+            </div>
+        `).join('');
+}
+
+function removeFile(id,i){
+    listingFilesMap[id].splice(i,1);
+    renderPreview(id);
+}
+
+/* ==========================
+   SAVE
+========================== */
+async function save(id){
+
+    const fd = new FormData();
+
+    fd.append("items", document.getElementById(`items-${id}`).value);
+
+    const imgs = [...document.querySelectorAll(`#photos-${id} img`)]
+        .map(i => i.src.replace(location.origin + '/', ''));
+
+    const removed = removedPhotosMap[id] || new Set();
+    const remaining = imgs.filter(p => !removed.has(p));
+
+    const newFiles = listingFilesMap[id] || [];
+
+    if(remaining.length + newFiles.length > 5){
+        showToast("Max 5 photos","warning");
+        return;
+    }
+
+    remaining.forEach(p=>fd.append("existingPhotos",p));
+    newFiles.forEach(f=>fd.append("newPhotos",f));
+
+    const selectedDays = [...document.querySelectorAll(`input[name="days-${id}"]:checked`)]
+        .map(el => el.value);
+
+    selectedDays.forEach(d => fd.append("participatingDays", d));
+
+    const res = await fetch(`/api/submissions/${id}`,{
+        method:'PUT',
+        body:fd
+    });
+
+    if(!res.ok){
+        showToast("Save failed","danger");
+        return;
+    }
+
+    showToast("Saved","success");
+
+    listingFilesMap[id] = [];
+    removedPhotosMap[id] = new Set();
+
+    load();
+}
+
+/* ==========================
+   DELETE
+========================== */
+async function del(id){
+
+    if(!confirm("Delete listing?")) return;
+
+    await fetch(`/api/submissions/${id}`,{method:'DELETE'});
+
+    showToast("Deleted","success");
+
+    load();
+}
+
+/* ==========================
+   INIT
+========================== */
+load();
+</script>
+
+</body>
+</html>

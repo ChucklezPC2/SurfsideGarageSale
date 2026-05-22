@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Manage Listing</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="/css/styles.css" rel="stylesheet">
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/common.js"></script>
+
+<style>
+.dropZone {
+    border: 2px dashed #ccc;
+    padding: 15px;
+    text-align: center;
+    border-radius: 8px;
+    background: #fafafa;
+    cursor: pointer;
+}
+.dropZone.dragover {
+    background: #e9f5ff;
+    border-color: #0d6efd;
+}
+.preview-container {
+    display: inline-block;
+    position: relative;
+    margin: 5px;
+}
+.preview-thumb {
+    width: 100px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 6px;
+}
+.preview-remove {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: red;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+}
+</style>
+</head>
+
+<body class="bg-light">
+
+<div id="nav-container"></div>
+
+<div class="container mt-4">
+
+<h2 class="mb-3">Manage Listing</h2>
+
+<div id="bookmarkNotice" class="alert alert-warning d-none">
+  <strong>Important:</strong><br>
+  This page is your <em>only edit link</em>.<br>
+  Bookmark it or save the URL to continue editing later.
+</div>
+
+<form id="newListingForm">
+
+<label class="form-label fw-bold">Address</label>
+<input id="addr" class="form-control mb-2" autocomplete="off">
+<div id="suggestions" class="list-group mb-3"></div>
+
+<input type="hidden" id="full" name="addressFull">
+<input type="hidden" id="lat" name="latitude">
+<input type="hidden" id="lng" name="longitude">
+
+<label class="form-label fw-bold">Description</label>
+<textarea name="items" class="form-control mb-3"></textarea>
+
+<label class="form-label fw-bold">Participating Days</label>
+
+<div id="daysSelector" class="mb-3 d-flex gap-2 flex-wrap">
+  <button type="button" class="btn btn-outline-primary day-btn" data-day="June 11">June 11</button>
+  <button type="button" class="btn btn-outline-primary day-btn" data-day="June 12">June 12</button>
+  <button type="button" class="btn btn-outline-primary day-btn" data-day="June 13">June 13</button>
+  <button type="button" class="btn btn-outline-primary day-btn" data-day="June 14">June 14</button>
+</div>
+
+<label class="form-label fw-bold">Photos (max 5)</label>
+<div id="dropZone" class="dropZone">
+    Drag & Drop Photos or Click Here
+    <input id="photoInput" type="file" multiple hidden>
+</div>
+
+<div id="photoPreview" class="mt-2"></div>
+
+<div id="turnstileContainer" class="mb-3">
+  <div class="cf-turnstile" data-sitekey="0x4AAAAAADUCWoyQAh5KpWM6">
+  </div>
+</div>
+
+<div class="mt-3 d-flex gap-2">
+    <button type="button" class="btn btn-success" onclick="submitListing()">
+        Submit Listing
+    </button>
+
+    <button id="deleteBtn"
+            type="button"
+            class="btn btn-danger d-none"
+            onclick="deleteListing()">
+        Delete Listing
+    </button>
+</div>
+
+</form>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+let selectedFiles = [];
+let removedExistingPhotos = new Set();
+let editMode = false;
+let currentListingId = null;
+let selectedPlace = null;
+let resultsCache = [];
+let debounceTimer;
+let existingPhotoPaths = [];
+
+
+const params = new URLSearchParams(window.location.search);
+const token = params.get('token');
+
+if (!token) {
+  document.getElementById('turnstileContainer')?.classList.remove('d-none');
+}
+
+
+/* ==========================
+   ADDRESS SEARCH
+========================== */
+function formatAddress(p){
+    const a = p.address || {};
+    return `${a.house_number || ''} ${a.road || ''}, ${a.city || a.town || ''} ${(a.state || '').toUpperCase()} ${a.postcode || ''}`
+        .replace(/\s+/g,' ')
+        .replace(/\s+,/g,',')
+        .trim();
+}
+
+addr.addEventListener('input', function(){
+    clearTimeout(debounceTimer);
+    if(this.value.length < 3) return suggestions.innerHTML='';
+    debounceTimer = setTimeout(()=>searchAddress(this.value),300);
+});
+
+async function searchAddress(q){
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(q + ', Eastlake, OH')}`);
+    resultsCache = await res.json();
+    suggestions.innerHTML = resultsCache.map((r,i)=>`
+        <div class="list-group-item" onclick="selectAddress(${i})">
+            ${formatAddress(r)}
+        </div>`).join('');
+}
+
+function selectAddress(i){
+    selectedPlace = resultsCache[i];
+    const clean = formatAddress(selectedPlace);
+    addr.value = clean;
+    full.value = clean;
+    lat.value = selectedPlace.lat;
+    lng.value = selectedPlace.lon;
+    suggestions.innerHTML='';
+}
+
+/* ==========================
+   PHOTOS
+========================== */
+dropZone.onclick = ()=>photoInput.click();
+photoInput.onchange = ()=>handleFiles([...photoInput.files]);
+
+function handleFiles(files){
+    if(selectedFiles.length + files.length > 5){
+        showToast("Max 5 photos","warning");
+        return;
+    }
+    selectedFiles.push(...files);
+    renderPreview();
+}
+
+function renderPreview(){
+
+    // Remove old new-photo previews only
+    document
+        .querySelectorAll('.new-photo')
+        .forEach(el => el.remove());
+
+    selectedFiles.forEach((f, i) => {
+        const div = document.createElement('div');
+        div.className = 'preview-container new-photo';
+
+        div.innerHTML = `
+            <img src="${URL.createObjectURL(f)}" class="preview-thumb">
+            <button class="preview-remove" onclick="removePreview(${i})">×</button>
+        `;
+
+        photoPreview.appendChild(div);
+    });
+}
+
+function removePreview(i){
+    selectedFiles.splice(i,1);
+    renderPreview();
+}
+
+function renderExistingPhotos(photos){
+    existingPhotoPaths = photos;
+
+    photoPreview.innerHTML = photos.map(p => `
+        <div class="preview-container existing-photo" data-path="${p}">
+            <img src="/${p}" class="preview-thumb">
+            <button class="preview-remove"
+                onclick="removeExistingPhoto('${p}', this)">×</button>
+            <input type="hidden" name="existingPhotos" value="${p}">
+        </div>
+    `).join('');
+}
+
+function removeExistingPhoto(p,btn){
+    removedExistingPhotos.add(p);
+    btn.parentElement.remove();
+}
+
+/* ==========================
+   LOAD (EDIT MODE)
+========================== */
+async function load(){
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if(!token) return;
+
+    const res = await fetch(`/api/submissions/by-token?token=${encodeURIComponent(token)}`);
+    if(!res.ok){
+        showToast("Invalid edit link","danger");
+        return;
+    }
+
+    const listing = await res.json();
+    editMode = true;
+    currentListingId = listing.id;
+
+    bookmarkNotice.classList.remove('d-none');
+    deleteBtn.classList.remove('d-none');
+
+    addr.value = listing.address;
+    addr.readOnly = true;
+    full.value = listing.address;
+    lat.value = listing.latitude;
+    lng.value = listing.longitude;
+
+    document.querySelector('[name="items"]').value = listing.items || '';
+
+    const days = JSON.parse(listing.participating_days || '[]');
+
+    document.querySelectorAll('.day-btn').forEach(btn => {
+    btn.classList.toggle('active', days.includes(btn.dataset.day));
+    });
+
+    document.getElementById('turnstileContainer')?.classList.add('d-none');
+
+    renderExistingPhotos(JSON.parse(listing.photos || '[]'));
+    document.querySelector('.btn-success').textContent = "Update Listing";
+}
+
+/* ==========================
+   SUBMIT
+========================== */
+async function submitListing(){
+
+    const fd = new FormData();
+
+    // Turnstile (new listings only)
+    if (!editMode) {
+        const tsToken =
+            document.querySelector('[name="cf-turnstile-response"]')?.value;
+
+        if (!tsToken) {
+            showToast("Please complete the security check","warning");
+            return;
+        }
+
+        fd.append("cf-turnstile-response", tsToken);
+    }
+
+    // -------------------------
+    // Required fields
+    // -------------------------
+    fd.append("addressFull", full.value);
+    fd.append("latitude", lat.value);
+    fd.append("longitude", lng.value);
+    fd.append("items", document.querySelector('[name="items"]').value || '');
+
+    // -------------------------
+    // Participating Days ✅
+    // -------------------------
+    document.querySelectorAll('.day-btn.active').forEach(btn => {
+    fd.append("participatingDays", btn.dataset.day);
+    });
+
+    // -------------------------
+    // Photos
+    // -------------------------
+    selectedFiles.forEach(f =>
+        fd.append(editMode ? "newPhotos" : "photos", f)
+    );
+
+    // -------------------------
+    // Existing photos (edit mode)
+    // -------------------------
+    if (editMode) {
+        document
+            .querySelectorAll('input[name="existingPhotos"]')
+            .forEach(i => {
+                if (!removedExistingPhotos.has(i.value)) {
+                    fd.append("existingPhotos", i.value);
+                }
+            });
+    }
+
+    // -------------------------
+    // Request
+    // -------------------------
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+
+    const url = editMode
+        ? `/api/submissions/${currentListingId}?token=${encodeURIComponent(token)}`
+        : '/api/submissions';
+
+    const method = editMode ? 'PUT' : 'POST';
+
+    const res = await fetch(url, { method, body: fd });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+        showToast(data.error || "Save failed", "danger");
+        return;
+    }
+
+    if (!editMode) {
+        // Redirect to edit URL after create
+        window.location.href =
+            `/manage-listing.html?token=${encodeURIComponent(data.editToken)}`;
+        return;
+    }
+
+    showToast("Listing updated", "success");
+
+    selectedFiles = [];
+    removedExistingPhotos.clear();
+    load(); // refresh from server
+}
+
+/* ==========================
+   DELETE
+========================== */
+async function deleteListing(){
+    if(!confirm("Delete this listing permanently?")) return;
+    const token=new URLSearchParams(window.location.search).get('token');
+    await fetch(`/api/submissions/${currentListingId}?token=${encodeURIComponent(token)}`,{method:'DELETE'});
+    window.location.href='/';
+}
+
+load();
+
+document.querySelectorAll('.day-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    btn.classList.toggle('active');
+  });
+});
+</script>
+
+</body>
+</html>
