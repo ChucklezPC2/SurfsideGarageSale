@@ -1,6 +1,6 @@
 body {
     background: #f8f9fa;
-	padding: 20px;
+
 }
 
 /* autocomplete */
@@ -18,9 +18,6 @@ body {
 }
 
 
-#map {
-    height: 550px;
-}
 #table tbody tr {
     cursor: pointer;
 }
@@ -34,6 +31,88 @@ body {
   color: #fff;
 }
 
+/* index.html — desktop map */
+@media (min-width: 992px) {
+    body.index-page #map {
+        height: 550px;
+        min-height: 400px;
+    }
+}
+
+/* index.html — mobile: no page scroll, split viewport */
+@media (max-width: 991.98px) {
+    html:has(body.index-page),
+    body.index-page {
+        overflow: hidden;
+        height: 100dvh;
+        max-height: 100dvh;
+    }
+
+    body.index-page {
+        padding: 0.25rem !important;
+        min-height: 0 !important;
+    }
+
+    body.index-page #nav-container {
+        flex-shrink: 0;
+    }
+
+    body.index-page #nav-container .navbar {
+        margin-bottom: 0.5rem !important;
+    }
+
+    body.index-page .index-title {
+        font-size: 1.05rem;
+        line-height: 1.2;
+        margin-bottom: 0.25rem !important;
+        padding-bottom: 0 !important;
+        flex-shrink: 0;
+    }
+
+    body.index-page .index-main {
+        flex: 1 1 0;
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        flex-wrap: nowrap;
+    }
+
+    body.index-page .index-main > .index-map-col {
+        order: -1;
+        flex: 0 0 36dvh;
+        max-height: 36dvh;
+        flex-shrink: 0;
+        width: 100%;
+        max-width: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    body.index-page #map {
+        height: 100% !important;
+        min-height: 0 !important;
+    }
+
+    body.index-page .index-main > .index-table-col {
+        flex: 1 1 0;
+        min-height: 0;
+        flex-shrink: 1;
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    body.index-page .index-table-scroll {
+        flex: 1 1 0;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+}
 
 #toast-container {
     position: fixed;
@@ -195,4 +274,122 @@ body {
     border-radius: 50%;
     width: 18px;
     height: 18px;
+}
+
+/* ==========================
+   MANAGE / SUBMIT LISTING
+========================== */
+
+.manage-page .manage-container {
+    max-width: 640px;
+}
+
+.manage-page .dropZone,
+.manage-page #dropZone {
+    border: 2px dashed #ccc;
+    padding: 15px;
+    text-align: center;
+    border-radius: 8px;
+    background: #fafafa;
+    cursor: pointer;
+}
+
+.manage-page .dropZone.dragover,
+.manage-page #dropZone.dragover {
+    background: #e9f5ff;
+    border-color: #0d6efd;
+}
+
+.manage-page #suggestions {
+    max-height: 220px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.manage-page #suggestions .list-group-item {
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+}
+
+.manage-page .manage-photo-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.manage-page .manage-turnstile {
+    overflow-x: auto;
+}
+
+@media (max-width: 991.98px) {
+    .manage-page {
+        padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+
+    .manage-page .manage-container {
+        padding-bottom: 1.5rem !important;
+    }
+
+    .manage-page .manage-title {
+        font-size: 1.25rem;
+    }
+
+    /* Prevent iOS zoom on input focus */
+    .manage-page .form-control,
+    .manage-page textarea {
+        font-size: 16px;
+    }
+
+    .manage-page .manage-days {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem !important;
+    }
+
+    .manage-page .manage-days .day-btn {
+        width: 100%;
+        min-height: 44px;
+        margin: 0;
+    }
+
+    .manage-page .manage-actions .btn {
+        width: 100%;
+        min-height: 48px;
+    }
+
+    .manage-page .preview-thumb {
+        width: 88px;
+        height: 72px;
+    }
+
+    .manage-page .preview-remove {
+        width: 28px;
+        height: 28px;
+        top: -8px;
+        right: -8px;
+        font-size: 1rem;
+        line-height: 1;
+    }
+
+    .manage-page #suggestions {
+        max-height: 35vh;
+    }
+
+    .manage-page .dropZone,
+    .manage-page #dropZone {
+        padding: 1.25rem 0.75rem;
+        font-size: 0.95rem;
+    }
+
+    .manage-page #toast-container {
+        top: auto !important;
+        bottom: calc(0.75rem + env(safe-area-inset-bottom, 0));
+        left: 0.75rem;
+        right: 0.75rem;
+        padding: 0 !important;
+    }
+
+    .manage-page #toast-container .toast {
+        width: 100%;
+    }
 }

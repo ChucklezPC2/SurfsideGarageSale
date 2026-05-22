@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Manage Listing</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 
@@ -12,52 +13,15 @@
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/js/common.js"></script>
-
-<style>
-.dropZone {
-    border: 2px dashed #ccc;
-    padding: 15px;
-    text-align: center;
-    border-radius: 8px;
-    background: #fafafa;
-    cursor: pointer;
-}
-.dropZone.dragover {
-    background: #e9f5ff;
-    border-color: #0d6efd;
-}
-.preview-container {
-    display: inline-block;
-    position: relative;
-    margin: 5px;
-}
-.preview-thumb {
-    width: 100px;
-    height: 80px;
-    object-fit: cover;
-    border-radius: 6px;
-}
-.preview-remove {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background: red;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 18px;
-    height: 18px;
-}
-</style>
 </head>
 
-<body class="bg-light">
+<body class="manage-page bg-light text-dark p-md-3 p-1">
 
 <div id="nav-container"></div>
 
-<div class="container mt-4">
+<div class="container manage-container px-3 px-md-4 py-3 py-md-4">
 
-<h2 class="mb-3">Manage Listing</h2>
+<h1 class="manage-title mb-3 text-center">Submit / Manage Listing</h1>
 
 <div id="bookmarkNotice" class="alert alert-warning d-none">
   <strong>Important:</strong><br>
@@ -68,19 +32,20 @@
 <form id="newListingForm">
 
 <label class="form-label fw-bold">Address</label>
-<input id="addr" class="form-control mb-2" autocomplete="off">
-<div id="suggestions" class="list-group mb-3"></div>
+<input id="addr" class="form-control mb-2" autocomplete="off"
+       placeholder="e.g. 123 Lake Shore Blvd or house number then pick your street">
+<div id="suggestions" class="list-group mb-4"></div>
 
 <input type="hidden" id="full" name="addressFull">
 <input type="hidden" id="lat" name="latitude">
 <input type="hidden" id="lng" name="longitude">
 
 <label class="form-label fw-bold">Description</label>
-<textarea name="items" class="form-control mb-3"></textarea>
+<textarea name="items" class="form-control mb-4"></textarea>
 
 <label class="form-label fw-bold">Participating Days</label>
 
-<div id="daysSelector" class="mb-3 d-flex gap-2 flex-wrap">
+<div id="daysSelector" class="manage-days mb-4 d-flex gap-2 flex-wrap">
   <button type="button" class="btn btn-outline-primary day-btn" data-day="June 11">June 11</button>
   <button type="button" class="btn btn-outline-primary day-btn" data-day="June 12">June 12</button>
   <button type="button" class="btn btn-outline-primary day-btn" data-day="June 13">June 13</button>
@@ -93,21 +58,21 @@
     <input id="photoInput" type="file" multiple hidden>
 </div>
 
-<div id="photoPreview" class="mt-2"></div>
+<div id="photoPreview" class="manage-photo-preview mt-2 mb-4"></div>
 
-<div id="turnstileContainer" class="mb-3">
+<div id="turnstileContainer" class="manage-turnstile mb-3">
   <div class="cf-turnstile" data-sitekey="0x4AAAAAADUCWoyQAh5KpWM6">
   </div>
 </div>
 
-<div class="mt-3 d-flex gap-2">
-    <button type="button" class="btn btn-success" onclick="submitListing()">
+<div class="manage-actions mt-3 d-flex flex-column flex-sm-row gap-2">
+    <button type="button" class="btn btn-success btn-lg flex-sm-grow-1" onclick="submitListing()">
         Submit Listing
     </button>
 
     <button id="deleteBtn"
             type="button"
-            class="btn btn-danger d-none"
+            class="btn btn-danger btn-lg flex-sm-grow-1 d-none"
             onclick="deleteListing()">
         Delete Listing
     </button>
@@ -116,7 +81,7 @@
 </form>
 </div>
 
-<div id="toast-container"></div>
+<div id="toast-container" class="position-fixed top-0 end-0 p-3"></div>
 
 <script>
 let selectedFiles = [];
@@ -140,12 +105,111 @@ if (!token) {
 /* ==========================
    ADDRESS SEARCH
 ========================== */
+// Eastlake, OH area (south, west, north, east)
+const EASTLAKE_BBOX = '41.62,-81.52,41.72,-81.38';
+
 function formatAddress(p){
     const a = p.address || {};
-    return `${a.house_number || ''} ${a.road || ''}, ${a.city || a.town || ''} ${(a.state || '').toUpperCase()} ${a.postcode || ''}`
-        .replace(/\s+/g,' ')
-        .replace(/\s+,/g,',')
-        .trim();
+    const streetLine = [a.house_number, a.road].filter(Boolean).join(' ').trim();
+    const locality = a.city || a.town || a.village || 'Eastlake';
+    const region = (a.state || 'OH').replace(/^ohio$/i, 'OH').toUpperCase();
+    const zip = a.postcode || '';
+
+    if (streetLine) {
+        const rest = [locality, region, zip].filter(Boolean).join(' ');
+        return rest ? `${streetLine}, ${rest}` : streetLine;
+    }
+
+    return 'Address unavailable';
+}
+
+function parseAddressQuery(q){
+    const trimmed = q.trim();
+    const m = trimmed.match(/^(\d+[a-zA-Z]?)(?:\s+(.*))?$/);
+    if (!m) return { houseNumber: null, streetPart: trimmed };
+    return { houseNumber: m[1], streetPart: (m[2] || '').trim() };
+}
+
+function houseNumberMatches(resultNum, queryNum){
+    if (!resultNum || !queryNum) return false;
+    return String(resultNum).toLowerCase() === String(queryNum).toLowerCase();
+}
+
+function overpassElementToPlace(el){
+    const tags = el.tags || {};
+    const lat = el.lat ?? el.center?.lat;
+    const lon = el.lon ?? el.center?.lon;
+    const house_number = tags['addr:housenumber'] || '';
+    const road = tags['addr:street'] || '';
+    const city = tags['addr:city'] || tags['addr:town'] || 'Eastlake';
+    const state = (tags['addr:state'] || 'OH').replace(/^ohio$/i, 'OH');
+    const postcode = tags['addr:postcode'] || '';
+
+    return {
+        lat,
+        lon,
+        address: { house_number, road, city, town: city, state, postcode }
+    };
+}
+
+async function searchByHouseNumber(num){
+    const query = `
+[out:json][timeout:25];
+(
+  node["addr:housenumber"="${num}"]${EASTLAKE_BBOX};
+  way["addr:housenumber"="${num}"]${EASTLAKE_BBOX};
+);
+out center 30;
+`;
+
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `data=${encodeURIComponent(query)}`
+    });
+
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    const seen = new Set();
+
+    return (data.elements || [])
+        .map(overpassElementToPlace)
+        .filter(p => {
+            if (!p.lat || !p.lon || !p.address.road) return false;
+            if (!houseNumberMatches(p.address.house_number, num)) return false;
+            const key = `${p.address.house_number}|${p.address.road}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        })
+        .sort((a, b) => a.address.road.localeCompare(b.address.road));
+}
+
+async function searchNominatim(q, requiredHouseNumber){
+    const params = new URLSearchParams({
+        format: 'json',
+        addressdetails: '1',
+        countrycodes: 'us',
+        limit: '10',
+        viewbox: '-81.52,41.72,-81.38,41.62',
+        bounded: '1',
+        q
+    });
+
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
+    let results = await res.json();
+
+    results = results.filter(r => r.address && r.address.road);
+
+    if (requiredHouseNumber) {
+        const matched = results.filter(r =>
+            houseNumberMatches(r.address.house_number, requiredHouseNumber)
+        );
+        if (matched.length) results = matched;
+    }
+
+    return results;
 }
 
 addr.addEventListener('input', function(){
@@ -155,10 +219,33 @@ addr.addEventListener('input', function(){
 });
 
 async function searchAddress(q){
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(q + ', Eastlake, OH')}`);
-    resultsCache = await res.json();
+    const trimmed = q.trim();
+    const { houseNumber, streetPart } = parseAddressQuery(trimmed);
+    let results;
+
+    if (houseNumber && !streetPart) {
+        results = await searchByHouseNumber(houseNumber);
+    } else if (houseNumber && streetPart) {
+        results = await searchNominatim(
+            `${houseNumber} ${streetPart} Eastlake OH`,
+            houseNumber
+        );
+    } else {
+        results = await searchNominatim(`${trimmed} Eastlake OH`, null);
+    }
+
+    resultsCache = results;
+
+    if (!resultsCache.length) {
+        const hint = houseNumber && !streetPart
+            ? 'No addresses with that house number found in Eastlake. Add your street name (e.g. 123 Lake Shore Blvd).'
+            : 'No street addresses found. Try house number and street name.';
+        suggestions.innerHTML = `<div class="list-group-item text-muted">${hint}</div>`;
+        return;
+    }
+
     suggestions.innerHTML = resultsCache.map((r,i)=>`
-        <div class="list-group-item" onclick="selectAddress(${i})">
+        <div class="list-group-item suggestion-item" onclick="selectAddress(${i})">
             ${formatAddress(r)}
         </div>`).join('');
 }

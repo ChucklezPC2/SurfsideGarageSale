@@ -34,26 +34,27 @@
 
 </head>
 
-<body>
+<body class="index-page bg-light text-dark p-md-3 p-1 d-flex flex-column min-vh-100">
 
 <div id="nav-container"></div>
 
-<div class="container">
+<h1 class="index-title text-center pb-2 mb-2">2026 Surfside Garage Sale Map</h1>
 
+<div class="index-main row flex-grow-1 g-2 g-md-3 min-h-0 mx-0">
 
-<div class="row">
-
-<div class="col-md-5">
-    <table id="table" class="table table-striped w-100"></table>
+<div class="col-md-5 index-table-col d-flex flex-column min-h-0 px-0 px-md-2">
+    <div class="index-table-scroll">
+        <table id="table" class="table table-striped w-100"></table>
+    </div>
 </div>
 
-<div class="col-md-7">
-    <div id="map"></div>
+<div class="col-md-7 index-map-col d-flex flex-column min-h-0 px-0 px-md-2">
+    <div id="map" class="z-0 flex-grow-1 w-100 rounded border"></div>
 </div>
 
 </div>
 
-</div>
+
 
 <!-- ✅ FILTER MODAL -->
 <div class="modal fade" id="filterModal">
@@ -171,8 +172,9 @@ function render(data){
 
         rows.push([
             getShortAddress(row.address),
-            row.items,
-            days.join(', ')
+            days.join(', '),
+            row.items
+            
         ]);
     });
 
@@ -180,17 +182,24 @@ function render(data){
         data: rows,
         columns: [
             { title: "Address" },
-            { title: "Items" },
-            { title: "Days" }
+            { title: "Days" },
+            { title: "Items Sold" },
+            
         ],
 
         searching: false,
-
+        language: {
+            lengthMenu: '_MENU_ houses per page',
+            info: "Showing _START_ to _END_ of _TOTAL_ houses",
+            processing: "Loading..."
+        },
         layout: {
             topStart: 'pageLength',
-
-            topEnd: {
+            topEnd: 'paging',
+            bottomStart: 'info',
+            bottomEnd: {
                 div: {
+                    className: 'text-center',
                     html: `
                         <button class="btn btn-outline-primary btn-sm"
                             data-bs-toggle="modal"
@@ -200,7 +209,11 @@ function render(data){
                     `
                 }
             }
-        }
+        },
+        pageLength: 10,
+        lengthMenu: [[5, 10, 25, -1], [5, 10, 25, "All"]],
+        order: [[1, 'asc'], [0, 'asc']],
+
     });
 
 
@@ -213,6 +226,8 @@ function render(data){
     if(bounds.length){
         map.fitBounds(bounds,{padding:[40,40],maxZoom:17});
     }
+
+    map.invalidateSize();
 }
 
 /* ==========================
@@ -273,6 +288,8 @@ window.openGallery = function(id){
    START
 ========================== */
 loadData();
+
+window.addEventListener('resize', () => map.invalidateSize());
 
 document.querySelectorAll('.filter-day').forEach(btn => {
   btn.addEventListener('click', () => {
