@@ -36,13 +36,13 @@
 
 <body class="index-page bg-light text-dark p-md-3 p-1 d-flex flex-column min-vh-100">
 
-<div id="nav-container"></div>
+<div id="nav-container d-print-none"></div>
 
 <h1 class="index-title text-center pb-2 mb-2">2026 Surfside Garage Sale Map</h1>
 
 <div class="index-main row flex-grow-1 g-2 g-md-3 min-h-0 mx-0">
 
-<div class="col-md-5 index-table-col d-flex flex-column min-h-0 px-0 px-md-2">
+<div class="col-md-5 index-table-col d-flex flex-column min-h-0 px-0 px-md-2 page">
     <div class="index-table-scroll">
         <table id="table" class="table table-striped w-100"></table>
     </div>
@@ -102,7 +102,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 let markerGroup = L.layerGroup().addTo(map);
 let table;
 let currentData = [];
-
+let bounds = [];
 
 
 /* ==========================
@@ -138,7 +138,7 @@ function render(data){
     }
 
     const rows = [];
-    const bounds = [];
+    bounds = [];
 
     data.forEach(row => {
 
@@ -201,16 +201,17 @@ function render(data){
                 div: {
                     className: 'text-center',
                     html: `
-                        <button class="btn btn-outline-primary btn-sm"
+                        <button class="btn btn-outline-primary btn-sm d-print-none"
                             data-bs-toggle="modal"
                             data-bs-target="#filterModal">
                             Filters
                         </button>
+                        <button id="printBtn" onclick="javascript:printMap();" class="btn btn-success btn-sm d-print-none float-end ms-1">Print</button>
                     `
                 }
             }
         },
-        pageLength: 10,
+        pageLength: 5,
         lengthMenu: [[5, 10, 25, -1], [5, 10, 25, "All"]],
         order: [[1, 'asc'], [0, 'asc']],
 
@@ -229,6 +230,21 @@ function render(data){
 
     map.invalidateSize();
 }
+
+function printMap(){
+  $("html").addClass("printView");
+  
+  if(bounds.length){
+        map.fitBounds(bounds,{padding:[40,40],maxZoom:17});
+    }
+
+  map.invalidateSize();
+
+  // Slight delay to allow the map to redraw before printing
+  setTimeout(() => {   window.print(); $("html").removeClass("printView"); }, 1000);
+  
+}
+
 
 /* ==========================
    FILTER LOGIC

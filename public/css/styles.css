@@ -393,3 +393,95 @@ body {
         width: 100%;
     }
 }
+
+@page {
+    size: letter portrait;
+    margin: 0.4in;
+}
+
+/* letter page minus @page margins (11in - 0.8in) */
+@media print {
+    html,
+    body {
+        height: auto !important;
+        max-height: none !important;
+        margin: 0;
+        overflow: visible !important;
+    }
+
+    /* index.html: stack listings and map (no side-by-side / mobile viewport lock) */
+    html:has(body.index-page),
+    body.index-page {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+        display: block !important;
+        min-height: 0 !important;
+    }
+
+    body.index-page .index-main {
+        display: block !important;
+        flex: none !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        flex-wrap: wrap !important;
+    }
+
+    body.index-page .index-main > .index-map-col,
+    body.index-page .index-main > .index-table-col {
+        order: unset !important;
+        flex: none !important;
+        max-height: none !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+        display: block !important;
+    }
+
+    body.index-page .index-main > .index-table-col.page {
+        break-after: page;
+        page-break-after: always;
+    }
+
+    body.index-page .index-main > .index-map-col {
+
+        position: relative;
+        height: 10in;
+        padding: 0;
+        box-sizing: border-box;
+        border:0;
+    }
+
+    body.index-page .index-table-scroll {
+        flex: none !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    body.index-page .index-map-col #map,
+    html.printView body.index-page .index-map-col #map {
+        position: absolute !important;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 100% !important;
+        margin: 0 !important;
+    }
+
+    body.index-page .index-map-col .leaflet-container,
+    body.index-page .index-map-col .leaflet-map-pane,
+    body.index-page .index-map-col .leaflet-tile-pane,
+    html.printView body.index-page .index-map-col .leaflet-container {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 100% !important;
+    }
+
+    .d-print-none, .dt-length, .dt-paging, #filterModal, #gallery, #toast-container, .dt-layout-start, .index-title {
+        display: none !important;
+    }
+}
